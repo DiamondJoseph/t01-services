@@ -1,8 +1,13 @@
 nexus-file-converter:
+  # Java debugging options
   debug:
     enabled: false
     suspend: false
+
+  # Graylog + metadata
   beamline: t01
+
+  # GDA NeXus templating
   template:
     entry/:
       NX_class@: NXentry
@@ -10,36 +15,44 @@ nexus-file-converter:
         NX_class@: NXinstrument
         name: t01
 
+  # Data dir
   volumes:
-  - name: nexus-data
-    hostPath:
-      path: /dls/t01/data
-      type: DirectoryOrCreate
-
+    - name: nexus-data
+      hostPath:
+        path: /dls/t01/data
+        type: DirectoryOrCreate
   volumeMounts:
-  - name: nexus-data
-    mountPath: /dls/t01/data
-    mountPropagation: HostToContainer
+    - name: nexus-data
+      mountPath: /dls/t01/data
+      mountPropagation: HostToContainer
 
   application:
+    # https://gitlab.diamond.ac.uk/daq/d2acq/services/nexus-file-converter/-/issues/17
+    # Bug, to be removed
     server:
       port: 8084
+
+    # Message bus configuration
     spring:
       profiles:
         active: rabbitmq
       rabbitmq:
-        host: t01-rabbitmq-daq.diamond.ac.uk
-        username: guest
-        password: guest
+        # Use Kubernetes Service name
+        host: t01-rabbitmq-daq
+
     files:
       output:
-        
         directory:
-          staticDirectory: ""  # explicitly empty, get from StartDocument metadata
-        
+          # explicitly empty, get from StartDocument metadata
+          # https://gitlab.diamond.ac.uk/daq/d2acq/services/nexus-file-converter/-/issues/16
+          staticDirectory: ""
         devices:
           types:
+            # Entries for every device in dodal.t01
             synchrotron: NX_SOURCE
-#  securityContext:
-#    runAsUser:
-#    runAsGroup:
+
+# Find id of `t01-detector` with `$id t01-detector`
+# Required for filewriting permissions on /dls
+securityContext:
+  runAsUser: 1067
+  runAsGroup: 1067

@@ -1,13 +1,7 @@
 blueapi:
-  
-  ingress:
-    enabled: false
-    hosts:
-      - host: t01-blueapi.diamond.ac.uk
-        paths:
-          - path: /
-            pathType: Prefix
-  
+  # Allows non-hostNetwork
+  # non-hostNetwork required to run as user with no extra perms
+  # see t01-epics-gateways readme
   extraEnvVars:
     - name: BEAMLINE
       value: t01
@@ -22,81 +16,96 @@ blueapi:
     - name: EPICS_CA_AUTO_ADDR_LIST
       value: "NO"
 
+  # blueapi config
   worker:
     env:
+      # metadata for logging and numtracker
       metadata:
         instrument: t01
+      # load plans and devices
       sources:
-      - kind: dodal
-        module: dodal.beamlines.t01
-      - kind: planFunctions
-        module: dodal.plans
+        - kind: dodal
+          module: dodal.beamlines.t01
+        - kind: planFunctions
+          module: dodal.plans
+        - kind: planFunctions
+          module: my_plans.plans
       events:
         broadcast_status_events: false
+
+    # Send bluesky documents to be consumed by NeXus etc.
     stomp:
-      auth:
-        username: guest
-        password: guest
-      url: tcp://t01-rabbitmq-daq.diamond.ac.uk:61613
+      # Must use LoadBalancerIP or DNS if hostNetwork: true
+      # See `extraEnvVars`
+      url: tcp://t01-rabbitmq-daq
       enabled: true
+
+    # Log to graylog.
+    # Default address is correct
     logging:
       level: "INFO"
       graylog:
         enabled: true
-    
+
     oidc:
+      # TODO: once NumTracker, tiled are backed by identity.diamond.ac.uk/realms/dls
+      # Switch this to the wellknown of that realm
       well_known_url: "https://authn.diamond.ac.uk/realms/master/.well-known/openid-configuration"
+      # When switching to identity.diamond.ac.uk, switch to `t01-blueapi`
       client_id: "blueapi-cli"
       logout_redirect_endpoint: "oauth2/sign_out"
-    
-    
+
     numtracker:
       url: https://numtracker.diamond.ac.uk/graphql
-    
+
     scratch:
       root: /dls_sw/t01/software/blueapi/scratch
       repositories:
         - name: dodal
           remote_url: https://github.com/DiamondLightSource/dodal.git
+        - name: my_plans
+          remote_url: https://github.com/DiamondLightSource/my_plans.git
+
   initContainer:
     enabled: true
-
+    # Removes need to mount /dls or /dls_sw
+    # No mounts allows us to run as user with no extra perms
+    persistentVolume:
+      enabled: true
 
 oauth2:
-  proxyVarsAsSecrets: false
-  extraEnv:
-    - name: OAUTH2_PROXY_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: blueapi-secret
-          key: client-secret
-    - name: OAUTH2_PROXY_COOKIE_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: blueapi-secret
-          key: cookie-secret
+  # TODO: Merge config and alphaConfig
   config:
     configFile: |-
       skip_provider_button = true
+      # Allows pre-authenticated requests from other clients
       skip_jwt_bearer_tokens = true
       cookie_refresh="1m"
       cookie_expire="30m"
+      # Required as authn.diamond.ac.uk does not provide email claim
       email_domains = [ "*" ]
+      # Allows GDA to fetch authentication information
       skip_auth_routes=[
       "GET=^/config/oidc",
-      "GET=^/healthz"
       ]
       whitelist_domains=["authn.diamond.ac.uk"]
+
+  # Reverse proxy sits between Ingress and blueapi
   ingress:
     enabled: true
     hosts:
       - t01-blueapi.diamond.ac.uk
     annotations:
+      # TODO: may no longer be required?
+      # May be required for fastapi docs page?
       nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"
     path: /
+    # Required for DLS policy
     pathType: Prefix
+
   alphaConfig:
     enabled: true
+
     configData:
       upstreamConfig:
         proxyRawPath: true
@@ -104,17 +113,26 @@ oauth2:
           - id: blueapi
             path: /
             uri: http://t01-blueapi
+
       providers:
         - provider: oidc
+          # TODO: switch to identity.diamond.ac.uk
           id: authn.diamond.ac.uk
           clientID: t01-blueapi
           clientSecret: ${OAUTH2_PROXY_CLIENT_SECRET}
           oidcConfig:
+            # TODO: switch to identity.diamond.ac.uk
+            issuerURL: https://authn.diamond.ac.uk/realms/master
+
+            # authn does not return email claim, identity may also not
             insecureAllowUnverifiedEmail: true
             emailClaim: sub
+
+            # TODO: Add `blueapi` as extra claim to all GUIs
             audienceClaims: ["aud"]
             extraAudiences: ["blueapi"]
-            issuerURL: https://authn.diamond.ac.uk/realms/master
+
+      # Pass token into call, for blueapi to check and pass to numtracker, tiled
       injectRequestHeaders:
         - name: Authorization
           values:
