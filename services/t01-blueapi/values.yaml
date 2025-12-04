@@ -1,12 +1,13 @@
 blueapi:
-  # Allows non-hostNetwork
-  # non-hostNetwork required to run as user with no extra perms
-  # see t01-epics-gateways readme
   extraEnvVars:
+  # For some dodal instruments
     - name: BEAMLINE
       value: t01
     - name: INSTRUMENT
       value: t01
+  # Allows non-hostNetwork
+  # non-hostNetwork required to run as user with no extra perms
+  # see t01-epics-gateways readme
     - name: EPICS_PVA_NAME_SERVERS
       value: t01-epics-gateways:9075
     - name: EPICS_CA_NAME_SERVERS
@@ -19,7 +20,7 @@ blueapi:
   # blueapi config
   worker:
     env:
-      # metadata for logging and numtracker
+      # metadata for logging, numtracker, tiled
       metadata:
         instrument: t01
       # load plans and devices
@@ -59,7 +60,7 @@ blueapi:
       url: https://numtracker.diamond.ac.uk/graphql
 
     scratch:
-      root: /dls_sw/t01/software/blueapi/scratch
+      root: /workspace_git/
       repositories:
         - name: dodal
           remote_url: https://github.com/DiamondLightSource/dodal.git
@@ -74,21 +75,27 @@ blueapi:
       enabled: true
 
 oauth2:
-  # TODO: Merge config and alphaConfig
+  # TODO: Merge config and alphaConfig when alphaConfig gets these keys
   config:
     configFile: |-
+      # Speed up login flow
       skip_provider_button = true
       # Allows pre-authenticated requests from other clients
       skip_jwt_bearer_tokens = true
-      cookie_refresh="1m"
-      cookie_expire="30m"
       # Required as authn.diamond.ac.uk does not provide email claim
       email_domains = [ "*" ]
-      # Allows GDA to fetch authentication information
+      # Allows GDA/CLI client to fetch authentication information
       skip_auth_routes=[
       "GET=^/config/oidc",
       ]
+      # Allows logout to redirect to idp logout
       whitelist_domains=["authn.diamond.ac.uk"]
+
+      # TODO: make these match recommended:
+      # cookie_refresh := Access-Token lifespan - 1m
+      # cookie_expire := Keycloak client_session_idle
+      cookie_refresh="1m"
+      cookie_expire="30m"
 
   # Reverse proxy sits between Ingress and blueapi
   ingress:
@@ -118,7 +125,7 @@ oauth2:
         - provider: oidc
           # TODO: switch to identity.diamond.ac.uk
           id: authn.diamond.ac.uk
-          clientID: t01-blueapi
+          clientID: ${OAUTH2_PROXY_CLIENT_ID}
           clientSecret: ${OAUTH2_PROXY_CLIENT_SECRET}
           oidcConfig:
             # TODO: switch to identity.diamond.ac.uk
@@ -129,7 +136,6 @@ oauth2:
             emailClaim: sub
 
             # TODO: Add `blueapi` as extra claim to all GUIs
-            audienceClaims: ["aud"]
             extraAudiences: ["blueapi"]
 
       # Pass token into call, for blueapi to check and pass to numtracker, tiled
