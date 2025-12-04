@@ -1,4 +1,10 @@
 blueapi:
+  debug:
+    # To use debugger open `scratch.code-workspace`
+    # This will be available with `module load ec/ixx & plandev`
+    # Or use `kubectl portforward <pod> 5678`
+    enabled: true
+
   extraEnvVars:
   # For some dodal instruments
     - name: BEAMLINE
@@ -71,6 +77,8 @@ blueapi:
     enabled: true
     # Removes need to mount /dls or /dls_sw
     # No mounts allows us to run as user with no extra perms
+    # To edit code in PVC scratch area open `scratch.code-workspace`
+    # This will be available with `module load ec/ixx & plandev`
     persistentVolume:
       enabled: true
 
