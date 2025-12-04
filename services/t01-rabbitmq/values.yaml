@@ -1,33 +1,48 @@
 rabbitmq:
   customConfig: |-
+    # Allows stomp clients to connect without authn
+    # This is likely the expectation of clients used to ActiveMQ
     stomp.default_user = guest
     stomp.default_pass = guest
+
     log.console = true
     log.console.level = info
     log.console.use_colors = off
+
+  # Authentication for the Management console on port 15672 when exposed
   authentication:
     user:
       value: guest
     password:
       value: guest
+    # Prevents server restart every 24 hours
     existingSecret: rabbitmq-secrets
     erlangCookie:
       secretKey: rabbitmq-erlang-cookie
+
+  # If GDA is not required to listen, jms can be removed
   plugins:
-  - rabbitmq_jms_topic_exchange
-  - rabbitmq_stomp
+    - rabbitmq_jms_topic_exchange
+    - rabbitmq_stomp
+
+  # Not required default Kubernetes resources
   rbac:
     create: false
   serviceAccount:
     create: false
+
   service:
+    # If only serving clients inside the cluster (NeXus and blueapi) use `ClusterIP`
     type: LoadBalancer
-    # loadBalancerIP: <loadBalancerIP> 
+    # If you have a StaticIP, and optionally DNS -> StaticIP mapping
+    loadBalancerIP: 172.12.xxx.xxx
     extraPorts:
       - name: stomp
         port: 61613
         targetPort: stomp
         containerPort: 61613
+
+  # ~ equivalent to `medium` in bitnami chart
   resources:
     requests:
       cpu: 500m

@@ -13,7 +13,7 @@ To request an Ingress for `t01-blueapi.diamond.ac.uk` in the `t01-beamline` name
 Please add the instrument session in the worker.env.metadata.instrument_session
 
 
-3. Add the client secret and cookie secret to `templates/secret.yaml`:
+3. Add the client id, client secret and cookie secret to `templates/secret.yaml`:
   - To obtain the client secret, message on slack #athena-components and request a Keycloak client named `t01-blueapi` on `authn.diamond.ac.uk` for blueapi, specifying the ingress `t01-blueapi.diamond.ac.uk`. The support team will send you the required secret.
   - To generate a cookie secret, refer to the [OAuth2 Proxy documentation](https://oauth2-proxy.github.io/oauth2-proxy/configuration/overview#generating-a-cookie-secret).
 
