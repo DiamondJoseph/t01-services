@@ -1,0 +1,45 @@
+nexus-file-converter:
+  debug:
+    enabled: false
+    suspend: false
+  beamline: t01
+  template:
+    entry/:
+      NX_class@: NXentry
+      instrument/:
+        NX_class@: NXinstrument
+        name: t01
+
+  volumes:
+  - name: nexus-data
+    hostPath:
+      path: /dls/t01/data
+      type: DirectoryOrCreate
+
+  volumeMounts:
+  - name: nexus-data
+    mountPath: /dls/t01/data
+    mountPropagation: HostToContainer
+
+  application:
+    server:
+      port: 8084
+    spring:
+      profiles:
+        active: rabbitmq
+      rabbitmq:
+        host: t01-rabbitmq-daq.diamond.ac.uk
+        username: guest
+        password: guest
+    files:
+      output:
+        
+        directory:
+          staticDirectory: ""  # explicitly empty, get from StartDocument metadata
+        
+        devices:
+          types:
+            synchrotron: NX_SOURCE
+#  securityContext:
+#    runAsUser:
+#    runAsGroup:
