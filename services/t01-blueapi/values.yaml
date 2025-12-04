@@ -77,6 +77,7 @@ blueapi:
 oauth2:
   # TODO: Merge config and alphaConfig when alphaConfig gets these keys
   config:
+    existingSecret: "blueapi-secret"
     configFile: |-
       # Speed up login flow
       skip_provider_button = true
